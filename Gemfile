@@ -10,6 +10,9 @@ gem "webpacker", "~> 5.0"
 gem "pg"
 gem "jbuilder", "~> 2.7"
 gem "react-rails"
+gem "activerecord-postgres_enum"
+gem "active_model_serializers"
+gem "json-schema"
 
 # Reduces boot times through caching; required in config/boot.rb
 gem "bootsnap", ">= 1.4.4", require: false
@@ -17,6 +20,9 @@ gem "bootsnap", ">= 1.4.4", require: false
 group :development, :test do
   gem "byebug", platforms: [:mri, :mingw, :x64_mingw]
   gem "foreman"
+  gem "rspec-rails", "~> 5.0.0"
+  gem "factory_bot_rails"
+  gem "database_cleaner-active_record"
 end
 
 group :development do
