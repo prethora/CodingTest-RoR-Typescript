@@ -16,6 +16,31 @@ RSpec.describe TodoList, type: :model do
     end    
   end
 
+  describe "Associations" do
+    it "deletes dependent todos and actions on todo_list deletion" do
+      list = create(:todo_list,version: 3)
+      todos = [
+        create(:todo,todo_list: list,checked: true),
+        create(:todo,todo_list: list,checked: true),
+        create(:todo,todo_list: list,checked: true)
+      ]
+      actions = [
+        create(:todo_action,todo_list: list,todo: todos[0],kind: "check",version: 1),
+        create(:todo_action,todo_list: list,todo: todos[1],kind: "check",version: 2),
+        create(:todo_action,todo_list: list,todo: todos[2],kind: "check",version: 3)
+      ]
+      list.destroy
+
+      todos.each do |todo|
+        expect(todo.destroyed?)
+      end
+
+      actions.each do |action|
+        expect(action.destroyed?)
+      end      
+    end
+  end
+
   describe "Methods" do
     describe "versioned_todos" do
       it "returns the current version and list of todos" do

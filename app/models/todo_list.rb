@@ -3,8 +3,8 @@
 # @field [String] title - a textual description of the todo list
 # @field [Integer] version - the number of actions that have so far been applied to the todo list
 class TodoList < ApplicationRecord
-  has_many :todos
-  has_many :actions, foreign_key: "todo_list_id", class_name: "TodoAction"
+  has_many :actions, foreign_key: "todo_list_id", class_name: "TodoAction", dependent: :destroy
+  has_many :todos, dependent: :destroy
   validates_presence_of :title
 
   def versioned_todos()
