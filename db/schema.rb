@@ -18,35 +18,51 @@ ActiveRecord::Schema.define(version: 2022_03_30_233411) do
   create_enum :todo_action_kind, [
     "check",
     "uncheck",
+    "insert",
+    "delete",
+    "edit",
+    "move",
   ], force: :cascade
 
   create_table "todo_actions", force: :cascade do |t|
     t.bigint "todo_list_id", null: false
-    t.integer "version"
+    t.integer "version", null: false
     t.bigint "todo_id", null: false
-    t.enum "kind", enum_type: "todo_action_kind"
+    t.enum "kind", null: false, enum_type: "todo_action_kind"
+    t.string "title"
+    t.bigint "previous_id"
+    t.string "uid", limit: 12, null: false
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
     t.index ["todo_id"], name: "index_todo_actions_on_todo_id"
     t.index ["todo_list_id", "version"], name: "index_todo_actions_on_todo_list_id_and_version", unique: true
+    t.index ["uid"], name: "index_todo_actions_on_uid", unique: true
   end
 
   create_table "todo_lists", force: :cascade do |t|
-    t.string "title"
-    t.integer "version", default: 0
+    t.string "title", null: false
+    t.integer "version", default: 0, null: false
+    t.bigint "nil_todo_id"
+    t.bigint "tmp_todo_id"
+    t.bigint "last_todo_id"
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
   end
 
   create_table "todos", force: :cascade do |t|
-    t.string "title"
-    t.boolean "checked", default: false
+    t.string "title", null: false
+    t.boolean "checked", default: false, null: false
     t.bigint "todo_list_id", null: false
+    t.bigint "previous_id"
+    t.boolean "deleted", default: false, null: false
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
+    t.index ["todo_list_id", "id"], name: "index_todos_on_todo_list_id_and_id"
+    t.index ["todo_list_id", "previous_id"], name: "index_todos_on_todo_list_id_and_previous_id", unique: true
     t.index ["todo_list_id"], name: "index_todos_on_todo_list_id"
   end
 
   add_foreign_key "todo_actions", "todos"
   add_foreign_key "todos", "todo_lists"
+  add_foreign_key "todos", "todos", column: "previous_id"
 end

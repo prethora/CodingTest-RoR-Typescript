@@ -23,8 +23,15 @@ RSpec.describe Todo, type: :model do
     end    
 
     it "is not valid without an existing todo_list" do
-      subject.todo_list_id = 100
+      subject.todo_list_id = 10000000001
       expect(subject).to_not be_valid
-    end    
+    end
+
+    it "is not valid if previous refers to a todo from another todo_list" do
+      list = create(:todo_list,todo_count: 1)
+      todo = list.first_ordered_todo
+      subject.previous = todo
+      expect(subject).to_not be_valid
+    end
   end
 end

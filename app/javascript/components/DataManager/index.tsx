@@ -42,6 +42,8 @@ const DataManager: React.FC<Props> = ({ children, todoList }) => {
                 }
             }
             else {
+                const { current: unsubscribe } = currentTodoListUnSubscribeRef;
+                if (unsubscribe) unsubscribe();
                 currentTodoListIdRef.current = -1;
                 setCurrentTodoListState(null);
             }
