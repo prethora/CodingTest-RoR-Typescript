@@ -452,7 +452,7 @@ RSpec.describe TodoList, type: :model do
         expect(result.uid_resolution).to eql({uid1 => todos[3].id-1,uid2 => todos[3].id,uid3 => todos[4].id})
       end
 
-      it "ignores an action if its uid belongs to an existing action" do
+      it "ignores an action if its uid belongs to an existing action, and returns an array of uids for all such ignored actions in the ignored_uids field of the result" do
         todos = list.versioned_todos.todos
         expect(todos.length).to eql(4)
         expect(todos[0].checked).to eql(true)
@@ -480,6 +480,7 @@ RSpec.describe TodoList, type: :model do
         ]
 
         expect(result.version).to eql(10)
+        expect(result.ignored_uids).to eql([uid])
 
         todos = list.versioned_todos.todos
         expect(todos.length).to eql(4)

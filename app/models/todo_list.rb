@@ -72,6 +72,8 @@ class TodoList < ApplicationRecord
       result
     }
 
+    ignored_uids = []
+
     version_before = self.version
     result = with_lock do
       raise ArgumentError,"invalid value for old_version - cannot be greater than current version" if (old_version > self.version)
@@ -79,8 +81,11 @@ class TodoList < ApplicationRecord
       version_pointer = self.version
       new_actions.each do |_action|
         action = _action.clone
-
-        next unless TodoAction.find_by(uid: action[:uid]).nil?
+        
+        unless TodoAction.find_by(uid: action[:uid]).nil?
+          ignored_uids << action[:uid]
+          next 
+        end
 
         if action[:kind]!="insert"
           action[:todo_id] = resolve_uid.call action[:todo_id]
@@ -199,7 +204,7 @@ class TodoList < ApplicationRecord
         self.version = version_pointer
         self.save!
       end
-      result = VersionedTodoListUpdate.new self,actions_before.load,uid_resolution
+      result = VersionedTodoListUpdate.new self,actions_before.load,uid_resolution,ignored_uids
     end
     ActionCable.server.broadcast("todo_list_#{self.id}", {"version" => self.version}) if self.version > version_before
     result
