@@ -82,8 +82,10 @@ class TodoList < ApplicationRecord
       new_actions.each do |_action|
         action = _action.clone
         
-        unless TodoAction.find_by(uid: action[:uid]).nil?
+        existing_action = TodoAction.find_by(uid: action[:uid])
+        unless existing_action.nil?
           ignored_uids << action[:uid]
+          uid_resolution[action[:uid]] = existing_action.todo_id if existing_action.kind=="insert"
           next 
         end
 

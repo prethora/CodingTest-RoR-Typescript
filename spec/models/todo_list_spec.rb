@@ -461,33 +461,39 @@ RSpec.describe TodoList, type: :model do
         expect(todos[3].checked).to eql(false)
 
         result = list.versioned_todos_update 7,[
-          {todo_id: todos[0].id,kind: "uncheck",uid: uid=TodoAction.generate_uid},
-          {todo_id: todos[1].id,kind: "uncheck",uid: TodoAction.generate_uid}
+          {todo_id: todos[0].id,kind: "uncheck",uid: uid0=TodoAction.generate_uid},
+          {todo_id: todos[1].id,kind: "uncheck",uid: TodoAction.generate_uid},
+          {kind: "insert",title: "inserted title 1",previous_id: todos[3].id,uid: uid1=TodoAction.generate_uid}
         ]
 
-        expect(result.version).to eql(9)
+        expect(result.version).to eql(10)
 
         todos = list.versioned_todos.todos
-        expect(todos.length).to eql(4)
+        expect(todos.length).to eql(5)
         expect(todos[0].checked).to eql(false)
         expect(todos[1].checked).to eql(false)
         expect(todos[2].checked).to eql(true)
         expect(todos[3].checked).to eql(false)
+        expect(todos[4].checked).to eql(false);expect(todos[4].title).to eql("inserted title 1")
 
-        result = list.versioned_todos_update 9,[
-          {todo_id: todos[2].id,kind: "uncheck",uid: uid},
-          {todo_id: todos[3].id,kind: "check",uid: TodoAction.generate_uid}
+        result = list.versioned_todos_update 10,[
+          {todo_id: todos[0].id,kind: "uncheck",uid: uid0},
+          {todo_id: todos[3].id,kind: "check",uid: TodoAction.generate_uid},
+          {kind: "insert",title: "inserted title 1",previous_id: todos[3].id,uid: uid1},
+          {todo_id: uid1,kind: "check",uid: TodoAction.generate_uid},
         ]
 
-        expect(result.version).to eql(10)
-        expect(result.ignored_uids).to eql([uid])
+        expect(result.version).to eql(12)
+        expect(result.uid_resolution).to eql({uid1 => todos[4].id})
+        expect(result.ignored_uids).to eql([uid0,uid1])
 
         todos = list.versioned_todos.todos
-        expect(todos.length).to eql(4)
+        expect(todos.length).to eql(5)
         expect(todos[0].checked).to eql(false)
         expect(todos[1].checked).to eql(false)
         expect(todos[2].checked).to eql(true)
         expect(todos[3].checked).to eql(true)
+        expect(todos[4].checked).to eql(true);expect(todos[4].title).to eql("inserted title 1")
       end
 
       it "updates the todo_list version, applies new_actions and appropriately creates them in the todo_actions table" do
