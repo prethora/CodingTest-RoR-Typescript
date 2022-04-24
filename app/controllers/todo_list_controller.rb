@@ -21,12 +21,13 @@ class TodoListController < ApplicationController
           "type" => "array",
           "items" => {
             "type" => "object",
-            "required" => ["kind"],
+            "required" => ["todo_id","kind","uid"],
             "properties" => {
-              "todo_id" => {"type" => "integer"},
+              "todo_id" => {"type" => ["integer", "string"]},
               "kind" => {"type" => "string"},
               "title" => {"type" => "string"},
-              "previous_id" => {"type" => "integer"}
+              "previous_id" => {"type" => ["integer","string"]},
+              "uid" => {"type" => "string"}
             }
           }
         }
