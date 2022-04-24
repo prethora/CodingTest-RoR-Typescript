@@ -1,14 +1,14 @@
 import axios from "axios";
 import updating from "../../../updating";
-import { kindStringToEnum, sleep } from "./helpers";
+import { generateUid, kindStringToEnum, sleep } from "./helpers";
 import { TodoListState } from "./state";
-import { Subscription, TodoListAction, TodoListManagerSubscriptionCallback, TodoListPendingAction, VersionedTodoListResponse, VersionedTodoListUpdateResponse } from "./types";
+import { Subscription, TodoListAction, TodoListActionKind, TodoListManagerSubscriptionCallback, TodoListPendingAction, TodoListServerAction, UidResolution, VersionedTodoListResponse, VersionedTodoListUpdateResponse } from "./types";
 import { createConsumer } from "@rails/actioncable";
 
 const consumer = createConsumer();
 
 export class TodoListManager {
-    private readonly requestRetryEveryMsecs = 5000;
+    private readonly REQUEST_RETRY_EVERY_MSECS = 5000;
 
     id: number;
     version: number;
@@ -54,6 +54,14 @@ export class TodoListManager {
 
     addActions(actions: TodoListAction[]) {
         if (!this.isActive) throw new Error("Cannot add action to a non-active data manager");
+        actions.forEach((action) => {
+            if ((action.kind === TodoListActionKind.insert) && (typeof action.todoId === "string")) {
+                action.uid = action.todoId;
+            }
+            else {
+                action.uid = generateUid();
+            }
+        });
         const pendingActions = actions.map((action) => this.state.applyAction(action)).filter((pendingAction) => pendingAction !== null);
         if (pendingActions.length > 0) {
             this.sendUpdatesToSubscriptions();
@@ -90,14 +98,17 @@ export class TodoListManager {
     private rollbackPendingActions() {
         for (let i = this.pendingActions.length - 1; i >= 0; i--) {
             const { rollback } = this.pendingActions[i].actions;
-            this.state.applyAction(rollback, { omitResponse: true });
+            rollback.forEach((action) => this.state.applyAction(action, { omitResponse: true }));
         }
     }
 
-    private forwardPendingActions() {
+    private forwardPendingActions(ignored_uids: string[]) {
+        const isAnIgnoredUid = (uid: string) => ignored_uids.indexOf(uid) !== -1;
         for (let i = 0; i < this.pendingActions.length; i++) {
             const { forward } = this.pendingActions[i].actions;
-            this.state.applyAction(forward, { omitResponse: true });
+            if (!isAnIgnoredUid(forward.uid)) {
+                this.state.applyAction(forward, { omitResponse: true });
+            }
         }
     }
 
@@ -110,12 +121,23 @@ export class TodoListManager {
             const createNewActions = () => this.pendingActions.map((pendingAction) => {
                 const { actions: { forward: action } } = pendingAction;
                 pendingAction.inRequest = true;
-                return { todo_id: action.todoId, kind: action.kind };
+
+                const ret: TodoListServerAction = { todo_id: action.todoId, kind: action.kind, uid: action.uid };
+
+                if ((action.kind === TodoListActionKind.insert) || (action.kind === TodoListActionKind.edit)) {
+                    ret.title = action.title;
+                }
+
+                if ((action.kind === TodoListActionKind.insert) || (action.kind === TodoListActionKind.move)) {
+                    ret.previous_id = action.previousId;
+                }
+
+                return ret;
             });
 
             let new_actions = createNewActions();
 
-            const { version, actions_before } = await updating.requesting(async () => {
+            const { version, actions_before, uid_resolution, ignored_uids } = await updating.requesting(async () => {
                 while (true) {
                     try {
                         const { data } = await axios.post<VersionedTodoListUpdateResponse>(`/todo/${this.id}/update`, { old_version: this.version, new_actions });
@@ -123,7 +145,7 @@ export class TodoListManager {
                     }
                     catch (err) {
                     }
-                    await sleep(this.requestRetryEveryMsecs);
+                    await sleep(this.REQUEST_RETRY_EVERY_MSECS);
 
                     if (this.pendingActions.length > new_actions.length) {
                         new_actions = createNewActions();
@@ -131,21 +153,39 @@ export class TodoListManager {
                 }
             }, { silent: (new_actions.length === 0) });
 
+            let mustSendUpdateToSubscriptions = this.state.processUidResolution(uid_resolution);
+            this.processUidResolution(uid_resolution);
+
             this.version = version;
             if (this.knownVersion < version) this.knownVersion = version;
 
             if (actions_before.length > 0) {
                 this.rollbackPendingActions();
-                actions_before.forEach(({ todo_id: todoId, kind }) => {
-                    this.state.applyAction({ todoListId: this.id, todoId, kind: kindStringToEnum(kind) }, { omitResponse: true });
+                actions_before.forEach(({ todo_id: todoId, kind, title, previous_id: previousId }) => {
+                    this.state.applyAction({
+                        todoListId: this.id,
+                        todoId, kind: kindStringToEnum(kind),
+                        title,
+                        previousId
+                    }, { omitResponse: true });
                 });
-                this.forwardPendingActions();
-                this.sendUpdatesToSubscriptions();
+                this.forwardPendingActions(ignored_uids);
+                mustSendUpdateToSubscriptions = true;
             }
+
+            if (mustSendUpdateToSubscriptions) this.sendUpdatesToSubscriptions();
+
             this.pendingActions = this.pendingActions.filter(({ inRequest }) => !inRequest);
             this.updating = false;
             this.processPending();
         })();
+    }
+
+    private processUidResolution(uidResolution: UidResolution) {
+        this.pendingActions.map(({ actions: { forward, rollback } }) => [forward, rollback]).flat(2).forEach((action) => {
+            if (uidResolution[action.todoId]) action.todoId = uidResolution[action.todoId];
+            if (uidResolution[action.previousId]) action.previousId = uidResolution[action.previousId];
+        });
     }
 
     private setupActionCableSubscription() {

@@ -4,6 +4,8 @@
     "editor.formatOnSave": true
   },
   "cSpell.words": [
-    "todos"
+    "actioncable",
+    "todos",
+    "uids"
   ]
 }
