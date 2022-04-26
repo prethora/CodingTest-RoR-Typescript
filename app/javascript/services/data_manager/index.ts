@@ -1,20 +1,25 @@
 import axios from "axios";
 import { TodoListManager } from "./managers/todo_list";
 import { TodoListState } from "./managers/todo_list/state";
-import { TodoListAction, VersionedTodoListResponse } from "./managers/todo_list/types";
+import { TodoListAction, TodoListManagerSubscriptionCallback, VersionedTodoListResponse } from "./managers/todo_list/types";
 
 class DataManagerService {
     todoListManagers: { [id: number]: TodoListManager } = {}
 
-    async subscribeToTodoListState(id: number, cb: (state: TodoListState) => void) {
-        if (!this.todoListManagers[id]) {
-            const manager = new TodoListManager(id);
-            if (await manager.load()) {
-                this.todoListManagers[id] = manager;
-            }
-        }
+    async subscribeToTodoListState(id: number, cb: TodoListManagerSubscriptionCallback) {
+        await this.ensureTodoDataManager(id);
         if (!this.todoListManagers[id]) throw new Error("Todo list does not exist");
         return this.todoListManagers[id].subscribe(cb);
+    }
+
+    pauseSubscription(id: number) {
+        if (!this.todoListManagers[id]) throw new Error("Todo list does not exist");
+        return this.todoListManagers[id].pauseSubscription();
+    }
+
+    resumeSubscription(id: number) {
+        if (!this.todoListManagers[id]) throw new Error("Todo list does not exist");
+        return this.todoListManagers[id].resumeSubscription();
     }
 
     addAction(action: TodoListAction) {
@@ -37,6 +42,16 @@ class DataManagerService {
 
     preLoad(todoList: VersionedTodoListResponse) {
         this.todoListManagers[todoList.todo_list_id] = TodoListManager.preLoad(todoList);
+    }
+
+    private async ensureTodoDataManager(id: number) {
+        if (!this.todoListManagers[id]) {
+            const manager = new TodoListManager(id);
+            if (await manager.load()) {
+                this.todoListManagers[id] = manager;
+            }
+        }
+        return this.todoListManagers[id];
     }
 }
 

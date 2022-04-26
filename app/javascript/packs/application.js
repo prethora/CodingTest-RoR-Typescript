@@ -7,6 +7,7 @@ import Rails from "@rails/ujs"
 import * as ActiveStorage from "@rails/activestorage"
 import "channels"
 import 'bootstrap/dist/css/bootstrap.min.css';
+import "../assets/fonts/vector-font/vector-font.css"
 
 Rails.start()
 ActiveStorage.start()

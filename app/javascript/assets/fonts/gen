@@ -1,0 +1,6 @@
+#!/bin/bash
+
+[[ -e "vector-font" ]] && rm -rf "vector-font"
+[[ -e ".fontcustom-manifest.json" ]] && rm ".fontcustom-manifest.json"
+fontcustom compile -n "vector-font" "./vectors"
+node -e 'require("fs").writeFileSync("./vector-font/vector-font.css",require("fs").readFileSync("./vector-font/vector-font.css","utf8").split("\n").filter((line) => line.indexOf(".eot")===-1).map((line) => (line.indexOf("(\"woff2\")")!==-1)?"  src: "+line.substr(7):line).join("\n"))'

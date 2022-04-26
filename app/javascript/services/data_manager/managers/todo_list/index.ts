@@ -4,6 +4,7 @@ import { generateUid, kindStringToEnum, sleep } from "./helpers";
 import { TodoListState } from "./state";
 import { Subscription, TodoListAction, TodoListActionKind, TodoListManagerSubscriptionCallback, TodoListPendingAction, TodoListServerAction, UidResolution, VersionedTodoListResponse, VersionedTodoListUpdateResponse } from "./types";
 import { createConsumer } from "@rails/actioncable";
+import { isThisTypeNode } from "typescript";
 
 const consumer = createConsumer();
 
@@ -14,8 +15,11 @@ export class TodoListManager {
     version: number;
     state: TodoListState;
 
+    onHold = false;
+
     constructor(id: number) {
         this.id = id;
+        (window as any).todoListManager = this;
     }
 
     async load() {
@@ -52,6 +56,19 @@ export class TodoListManager {
         };
     }
 
+    pauseSubscription() {
+        this.paused = true;
+    }
+
+    resumeSubscription(forceUpdate = false) {
+        if (this.paused) {
+            this.paused = false;
+            if (forceUpdate) {
+                this.sendUpdatesToSubscriptions();
+            }
+        }
+    }
+
     addActions(actions: TodoListAction[]) {
         if (!this.isActive) throw new Error("Cannot add action to a non-active data manager");
         actions.forEach((action) => {
@@ -85,6 +102,7 @@ export class TodoListManager {
     private error = false;
     private updating = false;
     private knownVersion = 0;
+    private paused = false;
     private get isActive() {
         return this.loaded && !this.error;
     }
@@ -92,6 +110,7 @@ export class TodoListManager {
     private pendingActions: TodoListPendingAction[] = [];
 
     private sendUpdatesToSubscriptions() {
+        if (this.paused) return;
         this.subscriptions.forEach(({ cb }) => cb(this.state));
     }
 
@@ -140,6 +159,7 @@ export class TodoListManager {
             const { version, actions_before, uid_resolution, ignored_uids } = await updating.requesting(async () => {
                 while (true) {
                     try {
+                        if (this.onHold) throw "on_hold";
                         const { data } = await axios.post<VersionedTodoListUpdateResponse>(`/todo/${this.id}/update`, { old_version: this.version, new_actions });
                         return data;
                     }
@@ -153,7 +173,7 @@ export class TodoListManager {
                 }
             }, { silent: (new_actions.length === 0) });
 
-            let mustSendUpdateToSubscriptions = this.state.processUidResolution(uid_resolution);
+            let mustSendUpdateToSubscriptions = this.state.processUidResolution(uid_resolution, ignored_uids);
             this.processUidResolution(uid_resolution);
 
             this.version = version;

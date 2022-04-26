@@ -1,4 +1,4 @@
-import { isValidUid } from "./helpers";
+import { generateUid, isValidUid } from "./helpers";
 import { Todo, TodoListAction, TodoListActionKind, TodoListPendingAction, TodoListStateData, UidResolution } from "./types";
 
 export class TodoListState {
@@ -8,7 +8,10 @@ export class TodoListState {
     constructor(title: string, todos: Todo[]) {
         this.title = title;
         this.todos = [...todos];
-        this.todos.forEach((todo) => this.idMap[todo.id] = todo);
+        this.todos.forEach((todo) => {
+            todo.uiid = generateUid();
+            this.idMap[todo.id] = todo;
+        });
     }
 
     applyAction(action: TodoListAction, { omitResponse = false }: { omitResponse?: boolean } = {}): TodoListPendingAction {
@@ -96,11 +99,21 @@ export class TodoListState {
             switch (action.kind) {
                 case TodoListActionKind.insert:
                     if (this.isValidInsertAction(action)) {
-                        const insertedTodo = {
+                        const insertedTodo: Todo = {
                             id: action.todoId,
                             title: action.title,
-                            checked: false
+                            checked: false,
+                            uiid: generateUid()
                         };
+
+                        if (typeof action.todoId === "string") {
+                            this.idToUiidMap[action.todoId] = insertedTodo.uiid;
+                        }
+                        else if ((typeof action.todoId === "number") && (this.idToUiidMap[action.todoId])) {
+                            insertedTodo.uiid = this.idToUiidMap[action.todoId];
+                            delete this.idToUiidMap[action.todoId];
+                        }
+
                         const insertAt = (!action.previousId) ? 0 : (this.todos.indexOf(this.idMap[action.previousId]) + 1);
                         this.todos.splice(insertAt, 0, insertedTodo);
                         this.idMap[insertedTodo.id] = insertedTodo;
@@ -125,7 +138,7 @@ export class TodoListState {
         };
     }
 
-    processUidResolution(uidResolution: UidResolution) {
+    processUidResolution(uidResolution: UidResolution, ignoredUids: string[]) {
         let changed = false;
         Object.keys(uidResolution).forEach((uid) => {
             if (this.idMap[uid]) {
@@ -135,11 +148,18 @@ export class TodoListState {
                 this.idMap[todo.id] = todo;
                 changed = true;
             }
+            if (this.idToUiidMap[uid]) {
+                if (ignoredUids.indexOf(uid) !== -1) {
+                    this.idToUiidMap[uidResolution[uid]] = this.idToUiidMap[uid];
+                }
+                delete this.idToUiidMap[uid];
+            }
         });
         return changed;
     }
 
     private idMap: { [id: number | string]: Todo } = {};
+    private idToUiidMap: { [id: number | string]: string } = {};
 
     private isValidInsertAction(action: TodoListAction) {
         return (action.kind === TodoListActionKind.insert) &&

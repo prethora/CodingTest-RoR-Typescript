@@ -4,6 +4,7 @@ export interface Todo {
     id: number | string;
     title: string;
     checked: boolean;
+    uiid?: string;
 }
 
 export interface VersionedTodoListResponse {
@@ -24,9 +25,14 @@ export interface VersionedTodoListUpdateResponse {
 }
 
 export type TodoListManagerSubscriptionCallback = (state: TodoListState) => void;
+export type TodoListManagerUidResolutionSubscriptionCallback = (uidResolution: UidResolution) => void;
 
 export interface Subscription {
     cb: TodoListManagerSubscriptionCallback;
+}
+
+export interface UidResolutionSubscription {
+    cb: TodoListManagerUidResolutionSubscriptionCallback;
 }
 
 export interface TodoListStateData {
