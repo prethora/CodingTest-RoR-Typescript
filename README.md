@@ -14,6 +14,10 @@ https://todoapp-codingtest.herokuapp.com/
 
 Database seeding has been moved from a migration to `db/seeds.rb`, so it is necessary to call `bin/rake db:seed` to setup the initial data (after calling `bin/rake db:migrate`).
 
+## Version 0.0.1.5
+
+This is an intermediate version, with the 'insert', 'edit', 'delete' and 'move' action kinds now supported in their most basic forms.
+
 ## Version 0.0.1
 
 You'll notice I haven't actually added any hard features yet, but I have re-engineered the data management on both the backend and frontend - it is now an efficient and ultra-fast real-time app that syncs across all opened sessions, and can maintain an offline state and sync up when back online. No page reloading, you'll notice a subtle spinner/tick at the bottom right that indicates when the data is syncing/has synced. Any attempt to close the window while data is still syncing results in a warning.
